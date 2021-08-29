@@ -16,6 +16,12 @@ pub struct DMGMemory {
     wram: [u8; 8192],
 }
 
+impl DMGMemory {
+    pub fn new() -> Self {
+        DMGMemory { vram: [0; 8192], wram: [0; 8192] }
+    }
+}
+
 impl Memory for DMGMemory {
     fn read(&self, addr: u16) -> u8 {
         if addr >= 0x8000 && addr < 0xA000 {
