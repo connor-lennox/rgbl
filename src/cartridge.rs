@@ -36,7 +36,7 @@ pub struct NoMBC {
 }
 
 impl NoMBC {
-    pub fn new(rom: &Vec<u8>) -> NoMBC {
+    pub fn new(rom: &Vec<u8>) -> Self {
         return NoMBC {rom: rom.to_vec()};
     }
 }
@@ -64,7 +64,7 @@ pub struct MBC1 {
 }
 
 impl MBC1 {
-    pub fn new(rom: &Vec<u8>, ram_size: usize) -> MBC1 {
+    pub fn new(rom: &Vec<u8>, ram_size: usize) -> Self {
         let cartrom: Vec<u8> = rom.to_vec();
         let cartram: Vec<u8> = vec![0; ram_size];
         let cart: MBC1 = MBC1 {rom_size: cartrom.len(), ram_size, rom: cartrom, ram: cartram, 
