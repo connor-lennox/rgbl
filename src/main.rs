@@ -16,6 +16,7 @@ mod cartridge;
 mod cpu;
 mod memory;
 mod motherboard;
+mod mmu;
 
 use std::fs;
 use std::path::Path;
@@ -33,7 +34,7 @@ struct World {
 fn main() -> Result<(), Error> {
     let cart_data = fs::read(Path::new("./carts/Tetris.gb")).expect("could not open file");
     let mb = Motherboard::new(&cart_data);
-    print!("{}", mb.read(0x0149));    
+    print!("{}", mb.mmu.read(0x0149));    
 
     env_logger::init();
     let event_loop = EventLoop::new();
