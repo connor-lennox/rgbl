@@ -120,7 +120,7 @@ impl Cpu {
             0x04 => { self.regs.b = self.increment(self.regs.b); 1 }
             0x05 => { self.regs.b = self.decrement(self.regs.b); 1 }
             0x06 => { self.regs.b = self.read_u8(mmu); 2 }
-            0x07 => { self.regs.a = self.rl(self.regs.a, true); 1 }
+            0x07 => { self.regs.a = self.rlc(self.regs.a); 1 }
             0x08 => { let a = self.read_u16(mmu); mmu.write_word(a, self.sp); 5 }
             0x09 => { let v = self.add_regs(self.regs.hl(), self.regs.bc()); self.regs.set_hl(v); 2 }
             0x0A => { self.regs.a = mmu.read(self.regs.bc()); 2 }
@@ -128,7 +128,7 @@ impl Cpu {
             0x0C => { self.regs.c = self.increment(self.regs.c); 1 }
             0x0D => { self.regs.c = self.decrement(self.regs.c); 1 }
             0x0E => { self.regs.c = self.read_u8(mmu); 2 }
-            0x0F => { self.regs.a = self.rr(self.regs.a, true); 1 }
+            0x0F => { self.regs.a = self.rrc(self.regs.a); 1 }
 
             0x10 => { todo!("stop"); 1 }
             0x11 => { let v = self.read_u16(mmu); self.regs.set_de(v); 3 }
@@ -137,7 +137,7 @@ impl Cpu {
             0x14 => { self.regs.d = self.increment(self.regs.d); 1 }
             0x15 => { self.regs.d = self.decrement(self.regs.d); 1 }
             0x16 => { self.regs.d = self.read_u8(mmu); 2 }
-            0x17 => { self.regs.a = self.rl(self.regs.a, false); 1 }
+            0x17 => { self.regs.a = self.rl(self.regs.a); 1 }
             0x18 => { self.jump_rel(mmu); 3 }
             0x19 => { let v = self.add_regs(self.regs.hl(), self.regs.de()); self.regs.set_hl(v); 2 }
             0x1A => { self.regs.a = mmu.read(self.regs.de()); 2 }
@@ -145,7 +145,7 @@ impl Cpu {
             0x1C => { self.regs.e = self.increment(self.regs.e); 1 }
             0x1D => { self.regs.e = self.decrement(self.regs.e); 1 }
             0x1E => { self.regs.e = self.read_u8(mmu); 2 }
-            0x1F => { self.regs.a = self.rr(self.regs.a, false); 1 }
+            0x1F => { self.regs.a = self.rr(self.regs.a); 1 }
 
             0x20 => { if !self.regs.get_flag(Flags::Z) { self.jump_rel(mmu); 3 } else { self.pc += 1; 2 } }
             0x21 => { let v = self.read_u16(mmu); self.regs.set_hl(v); 3 }
@@ -181,6 +181,9 @@ impl Cpu {
             0x3E => { self.regs.a = self.read_u8(mmu); 2 }
             0x3F => { self.regs.set_flag(Flags::H, false); self.regs.set_flag(Flags::N, false); self.regs.set_flag(Flags::C, !self.regs.get_flag(Flags::C)); 1 }
 
+            // TODO: massive blocks like this (and above) could be shortened by using the 
+            //       smarter decoding functions (such as code_to_reg, which could be expanded)
+            //       to handle the (HL) case...)
             0x40 => { self.regs.b = self.regs.b; 1 }
             0x41 => { self.regs.b = self.regs.c; 1 }
             0x42 => { self.regs.b = self.regs.d; 1 }
@@ -384,8 +387,152 @@ impl Cpu {
             0xFD => { panic!("invalid opcode 0xFD") }
             0xFE => { let v = self.read_u8(mmu); self.cp(v); 2 }
             0xFF => { self.rst(mmu, 0x38); 4 }
-            
-            _ => todo!("unimplemented opcode: {}", opcode)
+        }
+    }
+
+    fn execute_cb(&mut self, mmu: &mut Mmu) -> u8 {
+        let opcode: u8 = self.read_u8(mmu);
+
+        match opcode {
+            // RLC
+            0x06 => { let v = self.rlc(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x00..=0x07 => { 
+                let v = self.rlc(self.code_to_reg(opcode)); 
+                self.set_reg_from_code(opcode, v); 
+                2
+            }
+
+            // RRC
+            0x0E => { let v = self.rrc(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x08..=0x0F => { 
+                let v = self.rrc(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // RL
+            0x16 => { let v = self.rl(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x10..=0x17 => {
+                let v = self.rl(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // RR
+            0x1E => { let v = self.rr(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x18..=0x1F => {
+                let v = self.rr(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // SLA
+            0x26 => { let v = self.sla(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x20..=0x27 => {
+                let v = self.sla(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // SRA
+            0x2E => { let v = self.sra(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x28..=0x2F => {
+                let v = self.sra(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // SWAP
+            0x36 => { let v = self.swap(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x30..=0x37 => {
+                let v = self.swap(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // SRL
+            0x3E => { let v = self.srl(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
+            0x38..=0x3F => { 
+                let v = self.srl(self.code_to_reg(opcode));
+                self.set_reg_from_code(opcode, v);
+                2
+            }
+
+            // BIT
+            0x40..=0x7F => {
+                // Decode bit to check
+                let b = (opcode >> 3) & 0x07;
+                
+                // Check for (HL) case
+                // If bottom three bits are 110, use (HL) instead of register
+                if opcode & 0x07 == 0x06 {
+                    self.bit(mmu.read(self.regs.hl()), b);
+                    3
+                } else {
+                    self.bit(self.code_to_reg(opcode), b);
+                    2
+                }
+            }
+
+            // RES
+            0x80..=0xBF => {
+                // Decode bit to reset
+                let b = (opcode >> 3) & 0x07;
+
+                // Check for (HL) case
+                if opcode & 0x07 == 0x06 {
+                    let v = self.res(mmu.read(self.regs.hl()), b);
+                    mmu.write(self.regs.hl(), v);
+                    4
+                } else {
+                    let v = self.res(self.code_to_reg(opcode), b);
+                    self.set_reg_from_code(opcode, v);
+                    2
+                }
+            }
+
+            // SET
+            0xC0..=0xFF => {
+                // Decode bit to set
+                let b = (opcode >> 3) & 0x07;
+
+                // Check for (HL) case
+                if opcode & 0x07 == 0x06 {
+                    let v = self.set(mmu.read(self.regs.hl()), b);
+                    mmu.write(self.regs.hl(), v);
+                    4
+                } else {
+                    let v = self.set(self.code_to_reg(opcode), b);
+                    self.set_reg_from_code(opcode, v);
+                    2
+                }
+            }
+        }
+    }
+
+    fn code_to_reg(&self, opcode: u8) -> u8 {
+        match opcode & 0x07 {
+            0x00 => self.regs.b,
+            0x01 => self.regs.c,
+            0x02 => self.regs.d,
+            0x03 => self.regs.e,
+            0x04 => self.regs.h,
+            0x05 => self.regs.l,
+            0x07 => self.regs.a,
+            _ => panic!("invalid register code, use (HL) specific functionality")
+        }
+    }
+
+    fn set_reg_from_code(&mut self, opcode: u8, v: u8) {
+        match opcode & 0x07 {
+            0x00 => self.regs.b = v,
+            0x01 => self.regs.c = v,
+            0x02 => self.regs.d = v,
+            0x03 => self.regs.e = v,
+            0x04 => self.regs.h = v,
+            0x05 => self.regs.l = v,
+            0x07 => self.regs.a = v,
+            _ => panic!("invalid register code")
         }
     }
 
@@ -483,20 +630,132 @@ impl Cpu {
         self.sub(rhs, false);
     }
 
-    fn rl(&mut self, v: u8, set_carry: bool) -> u8 {
-        // Rotate left, optionally set carry flag to shifted out value
-        if set_carry {
-            self.regs.set_flag(Flags::C, v & 0x80 != 0);
-        }
-        v << 1
+    fn rl(&mut self, v: u8) -> u8 {
+        // Rotate left, through carry (9-bit rotate)
+        let old_carry = if self.regs.get_flag(Flags::C) {1} else {0};
+        self.regs.set_flag(Flags::C, v & 0x80 == 0x80);
+        
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        // Shift in old carry value
+        let result = (v << 1) | old_carry;
+    
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
     }
 
-    fn rr(&mut self, v: u8, set_carry: bool) -> u8 {
-        // Rotate right, optionally set carry flag to shifted out value
-        if set_carry {
-            self.regs.set_flag(Flags::C, v & 0x01 != 0);
-        }
-        v >> 1
+    fn rlc(&mut self, v: u8) -> u8 {
+        // Rotate left, copying old bit 7 to carry (also becomes bit 0)
+        self.regs.set_flag(Flags::C, v & 0x80 == 0x80);
+        let result = v.rotate_left(1);
+
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
+    }
+
+    fn rr(&mut self, v: u8) -> u8 {
+        // Rotate right, through carry (9-bit rotate)
+        let old_carry = if self.regs.get_flag(Flags::C) {1} else {0};
+        self.regs.set_flag(Flags::C, v & 0x01 == 0x01);
+        
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        // Shift in old carry value
+        let result = (v >> 1) | (old_carry << 7);
+    
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
+    }
+
+    fn rrc(&mut self, v: u8) -> u8 {
+        // Rotate right, copying old bit 7 to carry (also becomes bit 0)
+        self.regs.set_flag(Flags::C, v & 0x01 == 0x01);
+        let result = v.rotate_right(1);
+
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
+    }
+
+    fn sla(&mut self, v: u8) -> u8 {
+        // Shift left into carry
+        self.regs.set_flag(Flags::C, v & 0x80 == 0x80);
+        let result = v << 1;
+
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
+    }
+
+    fn sra(&mut self, v: u8) -> u8 {
+        // Shift right into carry, MSB remains the same
+        self.regs.set_flag(Flags::C, v & 0x01 == 0x01);
+        let result = (v >> 1) | (v & 0x80);
+
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
+    }
+
+    fn swap(&mut self, v: u8) -> u8 {
+        // Swap upper and lower nibbles of byte
+        let result = (v << 4) | (v >> 4);
+
+        self.regs.set_flag(Flags::Z, result == 0);
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+        self.regs.set_flag(Flags::C, false);
+
+        result
+    }
+
+    fn srl(&mut self, v: u8) -> u8 {
+        // Shift right into carry, MSB becomes 0
+        self.regs.set_flag(Flags::C, v & 0x01 == 0x01);
+        let result = v >> 1;
+
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, false);
+
+        self.regs.set_flag(Flags::Z, result == 0);
+        result
+    }
+
+    fn bit(&mut self, v: u8, b: u8) {
+        // Check bit b in v
+        self.regs.set_flag(Flags::Z, v & (1 << b) != 0);
+
+        // Reset flags
+        self.regs.set_flag(Flags::N, false);
+        self.regs.set_flag(Flags::H, true);
+    }
+
+    fn res(&mut self, v: u8, b: u8) -> u8 {
+        // Reset bit b in v
+        v & !(1 << b)
+    }
+
+    fn set(&mut self, v: u8, b: u8) -> u8 {
+        // Set bit b in v
+        v | (1 << b)
     }
 
     fn add_regs(&mut self, lhs: u16, rhs: u16) -> u16 {
