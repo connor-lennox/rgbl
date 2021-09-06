@@ -1,5 +1,9 @@
 extern crate enum_dispatch;
 
+use std::io::prelude::*;
+use std::io::{self, BufRead};
+use std::fs::File;
+
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
@@ -32,62 +36,87 @@ struct World {
 }
 
 fn main() -> Result<(), Error> {
-    let cart_data = fs::read(Path::new("./carts/Tetris.gb")).expect("could not open file");
-    let mb = Motherboard::new(&cart_data);
-    print!("{}", mb.mmu.read(0x0149));    
+    let cart_data = fs::read(Path::new("./carts/01-special.gb")).expect("could not open file");
+    let mut mb = Motherboard::new(&cart_data);
+    print!("{}", mb.mmu.read(0x0149));
 
-    env_logger::init();
-    let event_loop = EventLoop::new();
-    let mut input = WinitInputHelper::new();
-    let window = {
-        let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
-        WindowBuilder::new()
-            .with_title("Hello Pixels")
-            .with_inner_size(size)
-            .with_min_inner_size(size)
-            .build(&event_loop)
-            .unwrap()
-    };
+    let mut logfile = File::create("./carts/logs/log.txt").expect("Could not create log file");
+    let ref_file = File::open("./carts/reference_logs/blarg1.txt").expect("Could not open reference log");
 
-    let mut pixels = {
-        let window_size = window.inner_size();
-        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(WIDTH, HEIGHT, surface_texture)?
-    };
-    let mut world = World::new();
+    let mut ref_lines =  io::BufReader::new(ref_file).lines();
 
-    event_loop.run(move |event, _, control_flow| {
-        // Draw the current frame
-        if let Event::RedrawRequested(_) = event {
-            world.draw(pixels.get_frame());
-            if pixels
-                .render()
-                .map_err(|e| error!("pixels.render() failed: {}", e))
-                .is_err()
-            {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
+    loop {
+        let log_string = format!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+                                    mb.cpu.regs.a, mb.cpu.regs.flags, mb.cpu.regs.b, mb.cpu.regs.c, mb.cpu.regs.d, mb.cpu.regs.e, mb.cpu.regs.h, mb.cpu.regs.l, mb.cpu.sp, mb.cpu.pc,
+                                    mb.mmu.read(mb.cpu.pc), mb.mmu.read(mb.cpu.pc+1), mb.mmu.read(mb.cpu.pc+2), mb.mmu.read(mb.cpu.pc+3));
+        writeln!(&mut logfile, "{}", log_string).expect("could not write to log");
+        let ref_string = ref_lines.next().expect("error reading reference log").expect("reference log finished!");
+        if !(log_string == ref_string) {
+            panic!("reference log mismatch: expected\n{}\nbut got\n{}", ref_string, log_string);
         }
-
-        // Handle input events
-        if input.update(&event) {
-            // Close events
-            if input.key_pressed(VirtualKeyCode::Escape) || input.quit() {
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-
-            // Resize the window
-            if let Some(size) = input.window_resized() {
-                pixels.resize_surface(size.width, size.height);
-            }
-
-            // Update internal state and request a redraw
-            world.update();
-            window.request_redraw();
+        mb.tick();
+        if mb.mmu.read(0xFF02) == 0x81 {
+            print!("{}", mb.mmu.read(0xFF01) as char);
+            io::stdout().flush().ok().expect("could not flush stdout");
+            mb.mmu.write(0xFF02, 0);
         }
-    });
+    }
+
+
+    Ok(())
+
+    // env_logger::init();
+    // let event_loop = EventLoop::new();
+    // let mut input = WinitInputHelper::new();
+    // let window = {
+    //     let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
+    //     WindowBuilder::new()
+    //         .with_title("Hello Pixels")
+    //         .with_inner_size(size)
+    //         .with_min_inner_size(size)
+    //         .build(&event_loop)
+    //         .unwrap()
+    // };
+
+    // let mut pixels = {
+    //     let window_size = window.inner_size();
+    //     let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+    //     Pixels::new(WIDTH, HEIGHT, surface_texture)?
+    // };
+    // let mut world = World::new();
+
+    // event_loop.run(move |event, _, control_flow| {
+    //     // Draw the current frame
+    //     if let Event::RedrawRequested(_) = event {
+    //         world.draw(pixels.get_frame());
+    //         if pixels
+    //             .render()
+    //             .map_err(|e| error!("pixels.render() failed: {}", e))
+    //             .is_err()
+    //         {
+    //             *control_flow = ControlFlow::Exit;
+    //             return;
+    //         }
+    //     }
+
+    //     // Handle input events
+    //     if input.update(&event) {
+    //         // Close events
+    //         if input.key_pressed(VirtualKeyCode::Escape) || input.quit() {
+    //             *control_flow = ControlFlow::Exit;
+    //             return;
+    //         }
+
+    //         // Resize the window
+    //         if let Some(size) = input.window_resized() {
+    //             pixels.resize_surface(size.width, size.height);
+    //         }
+
+    //         // Update internal state and request a redraw
+    //         world.update();
+    //         window.request_redraw();
+    //     }
+    // });
 }
 
 impl World {
