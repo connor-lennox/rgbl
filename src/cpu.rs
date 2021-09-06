@@ -181,144 +181,62 @@ impl Cpu {
             0x3E => { self.regs.a = self.read_u8(mmu); 2 }
             0x3F => { self.regs.set_flag(Flags::H, false); self.regs.set_flag(Flags::N, false); self.regs.set_flag(Flags::C, !self.regs.get_flag(Flags::C)); 1 }
 
-            // TODO: massive blocks like this (and above) could be shortened by using the 
-            //       smarter decoding functions (such as code_to_reg, which could be expanded)
-            //       to handle the (HL) case...)
-            0x40 => { self.regs.b = self.regs.b; 1 }
-            0x41 => { self.regs.b = self.regs.c; 1 }
-            0x42 => { self.regs.b = self.regs.d; 1 }
-            0x43 => { self.regs.b = self.regs.e; 1 }
-            0x44 => { self.regs.b = self.regs.h; 1 }
-            0x45 => { self.regs.b = self.regs.l; 1 }
-            0x46 => { self.regs.b = mmu.read(self.regs.hl()); 2 }
-            0x47 => { self.regs.b = self.regs.a; 1 }
-            0x48 => { self.regs.c = self.regs.b; 1 }
-            0x49 => { self.regs.c = self.regs.c; 1 }
-            0x4A => { self.regs.c = self.regs.d; 1 }
-            0x4B => { self.regs.c = self.regs.e; 1 }
-            0x4C => { self.regs.c = self.regs.h; 1 }
-            0x4D => { self.regs.c = self.regs.l; 1 }
-            0x4E => { self.regs.c = mmu.read(self.regs.hl()); 2 }
-            0x4F => { self.regs.c = self.regs.a; 1 }
-
-            0x50 => { self.regs.d = self.regs.b; 1 }
-            0x51 => { self.regs.d = self.regs.c; 1 }
-            0x52 => { self.regs.d = self.regs.d; 1 }
-            0x53 => { self.regs.d = self.regs.e; 1 }
-            0x54 => { self.regs.d = self.regs.h; 1 }
-            0x55 => { self.regs.d = self.regs.l; 1 }
-            0x56 => { self.regs.d = mmu.read(self.regs.hl()); 2 }
-            0x57 => { self.regs.d = self.regs.a; 1 }
-            0x58 => { self.regs.e = self.regs.b; 1 }
-            0x59 => { self.regs.e = self.regs.c; 1 }
-            0x5A => { self.regs.e = self.regs.d; 1 }
-            0x5B => { self.regs.e = self.regs.e; 1 }
-            0x5C => { self.regs.e = self.regs.h; 1 }
-            0x5D => { self.regs.e = self.regs.l; 1 }
-            0x5E => { self.regs.e = mmu.read(self.regs.hl()); 2 }
-            0x5F => { self.regs.e = self.regs.a; 1 }
-
-            0x60 => { self.regs.h = self.regs.b; 1 }
-            0x61 => { self.regs.h = self.regs.c; 1 }
-            0x62 => { self.regs.h = self.regs.d; 1 }
-            0x63 => { self.regs.h = self.regs.e; 1 }
-            0x64 => { self.regs.h = self.regs.h; 1 }
-            0x65 => { self.regs.h = self.regs.l; 1 }
-            0x66 => { self.regs.h = mmu.read(self.regs.hl()); 2 }
-            0x67 => { self.regs.h = self.regs.a; 1 }
-            0x68 => { self.regs.l = self.regs.b; 1 }
-            0x69 => { self.regs.l = self.regs.c; 1 }
-            0x6A => { self.regs.l = self.regs.d; 1 }
-            0x6B => { self.regs.l = self.regs.e; 1 }
-            0x6C => { self.regs.l = self.regs.h; 1 }
-            0x6D => { self.regs.l = self.regs.l; 1 }
-            0x6E => { self.regs.l = mmu.read(self.regs.hl()); 2 }
-            0x6F => { self.regs.l = self.regs.a; 1 }
-            
-            0x70 => { mmu.write(self.regs.hl(), self.regs.b); 2 }
-            0x71 => { mmu.write(self.regs.hl(), self.regs.c); 2 }
-            0x72 => { mmu.write(self.regs.hl(), self.regs.d); 2 }
-            0x73 => { mmu.write(self.regs.hl(), self.regs.e); 2 }
-            0x74 => { mmu.write(self.regs.hl(), self.regs.h); 2 }
-            0x75 => { mmu.write(self.regs.hl(), self.regs.l); 2 }
+            // HALT
             0x76 => { todo!("halt"); 1 }
-            0x77 => { mmu.write(self.regs.hl(), self.regs.a); 2 }
-            0x78 => { self.regs.a = self.regs.b; 1 }
-            0x79 => { self.regs.a = self.regs.c; 1 }
-            0x7A => { self.regs.a = self.regs.d; 1 }
-            0x7B => { self.regs.a = self.regs.e; 1 }
-            0x7C => { self.regs.a = self.regs.h; 1 }
-            0x7D => { self.regs.a = self.regs.l; 1 }
-            0x7E => { self.regs.a = mmu.read(self.regs.hl()); 2 }
-            0x7F => { self.regs.a = self.regs.a; 1 }
 
-            0x80 => { self.regs.a = self.add(self.regs.b, false); 1 }
-            0x81 => { self.regs.a = self.add(self.regs.c, false); 1 }
-            0x82 => { self.regs.a = self.add(self.regs.d, false); 1 }
-            0x83 => { self.regs.a = self.add(self.regs.e, false); 1 }
-            0x84 => { self.regs.a = self.add(self.regs.h, false); 1 }
-            0x85 => { self.regs.a = self.add(self.regs.l, false); 1 }
-            0x86 => { self.regs.a = self.add(mmu.read(self.regs.hl()), false); 2 }
-            0x87 => { self.regs.a = self.add(self.regs.a, false); 1 }
-            0x88 => { self.regs.a = self.add(self.regs.b, true); 1 }
-            0x89 => { self.regs.a = self.add(self.regs.c, true); 1 }
-            0x8A => { self.regs.a = self.add(self.regs.d, true); 1 }
-            0x8B => { self.regs.a = self.add(self.regs.e, true); 1 }
-            0x8C => { self.regs.a = self.add(self.regs.h, true); 1 }
-            0x8D => { self.regs.a = self.add(self.regs.l, true); 1 }
-            0x8E => { self.regs.a = self.add(mmu.read(self.regs.hl()), true); 2 }
-            0x8F => { self.regs.a = self.add(self.regs.a, true); 1 }
+            // LD dest, source
+            0x40..=0x7F => {
+                let mut cycles = 1;
+                let source_code = opcode & 0x07;
+                let dest_code = (opcode >> 3) & 0x07;
 
-            0x90 => { self.regs.a = self.sub(self.regs.b, false); 1 }
-            0x91 => { self.regs.a = self.sub(self.regs.c, false); 1 }
-            0x92 => { self.regs.a = self.sub(self.regs.d, false); 1 }
-            0x93 => { self.regs.a = self.sub(self.regs.e, false); 1 }
-            0x94 => { self.regs.a = self.sub(self.regs.h, false); 1 }
-            0x95 => { self.regs.a = self.sub(self.regs.l, false); 1 }
-            0x96 => { self.regs.a = self.sub(mmu.read(self.regs.hl()), false); 2 }
-            0x97 => { self.regs.a = self.sub(self.regs.a, false); 1 }
-            0x98 => { self.regs.a = self.sub(self.regs.b, true); 1 }
-            0x99 => { self.regs.a = self.sub(self.regs.c, true); 1 }
-            0x9A => { self.regs.a = self.sub(self.regs.d, true); 1 }
-            0x9B => { self.regs.a = self.sub(self.regs.e, true); 1 }
-            0x9C => { self.regs.a = self.sub(self.regs.h, true); 1 }
-            0x9D => { self.regs.a = self.sub(self.regs.l, true); 1 }
-            0x9E => { self.regs.a = self.sub(mmu.read(self.regs.hl()), true); 2 }
-            0x9F => { self.regs.a = self.sub(self.regs.a, true); 1 }
+                cycles += if source_code == 0x06 {1} else {0};
+                cycles += if dest_code == 0x06 {1} else {0};
+
+                self.set_reg_from_code(mmu, dest_code, self.code_to_reg(mmu, source_code));
+
+                cycles
+            }
+
+            // ADD A, r8
+            0x80..=0x8F => {
+                let carry = opcode & 0x08 == 0x08;
+                self.regs.a = self.add(self.code_to_reg(mmu, opcode), carry);
+
+                // Performing this operation with a memory access takes an extra m-cycle
+                if opcode & 0x07 == 0x06 {2} else {1}
+            }
             
-            0xA0 => { self.regs.a = self.and(self.regs.b); 1 }
-            0xA1 => { self.regs.a = self.and(self.regs.c); 1 }
-            0xA2 => { self.regs.a = self.and(self.regs.d); 1 }
-            0xA3 => { self.regs.a = self.and(self.regs.e); 1 }
-            0xA4 => { self.regs.a = self.and(self.regs.h); 1 }
-            0xA5 => { self.regs.a = self.and(self.regs.l); 1 }
-            0xA6 => { self.regs.a = self.and(mmu.read(self.regs.hl())); 2 }
-            0xA7 => { self.regs.a = self.and(self.regs.a); 1 }
-            0xA8 => { self.regs.a = self.xor(self.regs.b); 1 }
-            0xA9 => { self.regs.a = self.xor(self.regs.c); 1 }
-            0xAA => { self.regs.a = self.xor(self.regs.d); 1 }
-            0xAB => { self.regs.a = self.xor(self.regs.e); 1 }
-            0xAC => { self.regs.a = self.xor(self.regs.h); 1 }
-            0xAD => { self.regs.a = self.xor(self.regs.l); 1 }
-            0xAE => { self.regs.a = self.xor(mmu.read(self.regs.hl())); 2 }
-            0xAF => { self.regs.a = self.xor(self.regs.a); 1 }
+            // SUB A, r8
+            0x90..=0x9F => {
+                let carry = opcode & 0x08 == 0x08;
+                self.regs.a = self.sub(self.code_to_reg(mmu, opcode), carry);
+                if opcode & 0x07 == 0x06 {2} else {1}
+            }
+            
+            // AND A, r8
+            0xA0..=0xA7 => {
+                self.regs.a = self.and(self.code_to_reg(mmu, opcode));
+                if opcode & 0x07 == 0x06 {2} else {1}
+            }
 
-            0xB0 => { self.regs.a = self.or(self.regs.b); 1 }
-            0xB1 => { self.regs.a = self.or(self.regs.c); 1 }
-            0xB2 => { self.regs.a = self.or(self.regs.d); 1 }
-            0xB3 => { self.regs.a = self.or(self.regs.e); 1 }
-            0xB4 => { self.regs.a = self.or(self.regs.h); 1 }
-            0xB5 => { self.regs.a = self.or(self.regs.l); 1 }
-            0xB6 => { self.regs.a = self.or(mmu.read(self.regs.hl())); 2 }
-            0xB7 => { self.regs.a = self.or(self.regs.a); 1 }
-            0xB8 => { self.cp(self.regs.b); 1 }
-            0xB9 => { self.cp(self.regs.c); 1 }
-            0xBA => { self.cp(self.regs.d); 1 }
-            0xBB => { self.cp(self.regs.e); 1 }
-            0xBC => { self.cp(self.regs.h); 1 }
-            0xBD => { self.cp(self.regs.l); 1 }
-            0xBE => { self.cp(mmu.read(self.regs.hl())); 2 }
-            0xBF => { self.cp(self.regs.a); 1 }
+            // XOR A, r8
+            0xA8..=0xAF => {
+                self.regs.a = self.xor(self.code_to_reg(mmu, opcode));
+                if opcode & 0x07 == 0x06 {2} else {1}
+            }
+
+            // OR A, r8
+            0xB0..=0xB7 => {
+                self.regs.a = self.or(self.code_to_reg(mmu, opcode));
+                if opcode & 0x07 == 0x06 {2} else {1}
+            }
+
+            // CP r8
+            0xB8..=0xBF => {
+                self.cp(self.code_to_reg(mmu, opcode));
+                if opcode & 0x07 == 0x06 {2} else {1}
+            }
 
             0xC0 => { if !self.regs.get_flag(Flags::Z) { self.ret(mmu); 5 } else { 2 } }
             0xC1 => { let v = self.pop_stack(mmu); self.regs.set_bc(v); 3 }
@@ -331,7 +249,7 @@ impl Cpu {
             0xC8 => { if self.regs.get_flag(Flags::Z) { self.ret(mmu); 5 } else { 2 } }
             0xC9 => { self.ret(mmu); 4 }
             0xCA => { if self.regs.get_flag(Flags::Z) { self.jump_imm(mmu); 4 } else { 3 } }
-            0xCB => { todo!("CB") }
+            0xCB => { self.execute_cb(mmu) }
             0xCC => { if self.regs.get_flag(Flags::Z) { self.call(mmu); 6 } else { 3 } }
             0xCD => { self.call(mmu); 6 }
             0xCE => { let v = self.read_u8(mmu); self.regs.a = self.add(v, true); 2 }
@@ -340,7 +258,7 @@ impl Cpu {
             0xD0 => { if !self.regs.get_flag(Flags::C) { self.ret(mmu); 5 } else { 2 } }
             0xD1 => { let v = self.pop_stack(mmu); self.regs.set_de(v); 3 }
             0xD2 => { if !self.regs.get_flag(Flags::C) { self.jump_imm(mmu); 4 } else { 3 } }
-            0xD3 => { panic!("invalid opcode 0xD3") }
+
             0xD4 => { if !self.regs.get_flag(Flags::C) { self.call(mmu); 6 } else { 3 } }
             0xD5 => { self.push_stack(mmu, self.regs.de()); 4 }
             0xD6 => { let v = self.read_u8(mmu); self.regs.a = self.sub(v, false); 2 }
@@ -348,26 +266,23 @@ impl Cpu {
             0xD8 => { if self.regs.get_flag(Flags::C) { self.ret(mmu); 5 } else { 2 } }
             0xD9 => { self.ret(mmu); self.enable_interrupts(); 4 }
             0xDA => { if self.regs.get_flag(Flags::C) { self.jump_imm(mmu); 4 } else { 3 } }
-            0xDB => { panic!("invalid opcode 0xDB") }
+
             0xDC => { if self.regs.get_flag(Flags::C) { self.call(mmu); 6 } else { 3 } }
-            0xDD => { panic!("invalid opcode 0xDD") }
+
             0xDE => { let v = self.read_u8(mmu); self.regs.a = self.sub(v, true); 2 }
             0xDF => { self.rst(mmu, 0x18); 4 }
 
             0xE0 => { mmu.write(0xFF00 + self.read_u8(mmu) as u16, self.regs.a); 3 }
             0xE1 => { let v = self.pop_stack(mmu); self.regs.set_hl(v); 3 }
             0xE2 => { mmu.write(0xFF00 + self.regs.c as u16, self.regs.a); 2 }
-            0xE3 => { panic!("invalid opcode 0xE3") }
-            0xE4 => { panic!("invalid opcode 0xE4") }
+
             0xE5 => { self.push_stack(mmu, self.regs.hl()); 4 }
             0xE6 => { let v = self.read_u8(mmu); self.regs.a = self.and(v); 2 }
             0xE7 => { self.rst(mmu, 0x20); 4 }
             0xE8 => { self.pc = self.add_imm(mmu, self.pc); 4 }
             0xE9 => { self.pc = self.regs.hl(); 1 }
             0xEA => { let a = self.read_u16(mmu); mmu.write(a, self.regs.a); 4 }
-            0xEB => { panic!("invalid opcode 0xEB") }
-            0xEC => { panic!("invalid opcode 0xEC") }
-            0xED => { panic!("invalid opcode 0xED") }
+
             0xEE => { let v = self.read_u8(mmu); self.regs.a = self.xor(v); 2 }
             0xEF => { self.rst(mmu, 0x28); 4 }
             
@@ -375,7 +290,7 @@ impl Cpu {
             0xF1 => { let v = self.pop_stack(mmu) & 0xFFF0; self.regs.set_af(v); 3 }
             0xF2 => { self.regs.a = mmu.read(0xFF00 + self.regs.c as u16); 2 }
             0xF3 => { self.disable_interrupts(); 1 }
-            0xF4 => { panic!("invalid opcode 0xF4") }
+
             0xF5 => { self.push_stack(mmu, self.regs.af()); 4 }
             0xF6 => { let v = self.read_u8(mmu); self.regs.a = self.or(v); 2 }
             0xF7 => { self.rst(mmu, 0x30); 4 }
@@ -383,134 +298,104 @@ impl Cpu {
             0xF9 => { self.sp = self.regs.hl(); 2 }
             0xFA => { let a = self.read_u16(mmu); self.regs.a = mmu.read(a); 4 }
             0xFB => { self.enable_interrupts(); 1 }
-            0xFC => { panic!("invalid opcode 0xFC") }
-            0xFD => { panic!("invalid opcode 0xFD") }
+
             0xFE => { let v = self.read_u8(mmu); self.cp(v); 2 }
             0xFF => { self.rst(mmu, 0x38); 4 }
+
+            _ => { panic!("invalid opcode {:02X}", opcode)}
         }
     }
 
     fn execute_cb(&mut self, mmu: &mut Mmu) -> u8 {
         let opcode: u8 = self.read_u8(mmu);
+        let mem_access = opcode & 0x07 == 0x06;
 
         match opcode {
             // RLC
-            0x06 => { let v = self.rlc(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x00..=0x07 => { 
-                let v = self.rlc(self.code_to_reg(opcode)); 
-                self.set_reg_from_code(opcode, v); 
-                2
+                let v = self.rlc(self.code_to_reg(mmu, opcode)); 
+                self.set_reg_from_code(mmu, opcode, v); 
+                if mem_access {4} else {2}
             }
 
             // RRC
-            0x0E => { let v = self.rrc(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x08..=0x0F => { 
-                let v = self.rrc(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.rrc(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // RL
-            0x16 => { let v = self.rl(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x10..=0x17 => {
-                let v = self.rl(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.rl(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // RR
-            0x1E => { let v = self.rr(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x18..=0x1F => {
-                let v = self.rr(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.rr(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // SLA
-            0x26 => { let v = self.sla(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x20..=0x27 => {
-                let v = self.sla(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.sla(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // SRA
-            0x2E => { let v = self.sra(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x28..=0x2F => {
-                let v = self.sra(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.sra(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // SWAP
-            0x36 => { let v = self.swap(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x30..=0x37 => {
-                let v = self.swap(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.swap(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // SRL
-            0x3E => { let v = self.srl(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 4 }
             0x38..=0x3F => { 
-                let v = self.srl(self.code_to_reg(opcode));
-                self.set_reg_from_code(opcode, v);
-                2
+                let v = self.srl(self.code_to_reg(mmu, opcode));
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // BIT
             0x40..=0x7F => {
                 // Decode bit to check
                 let b = (opcode >> 3) & 0x07;
-                
-                // Check for (HL) case
-                // If bottom three bits are 110, use (HL) instead of register
-                if opcode & 0x07 == 0x06 {
-                    self.bit(mmu.read(self.regs.hl()), b);
-                    3
-                } else {
-                    self.bit(self.code_to_reg(opcode), b);
-                    2
-                }
+                self.bit(self.code_to_reg(mmu, opcode), b);
+                if mem_access{3} else {2}
             }
 
             // RES
             0x80..=0xBF => {
                 // Decode bit to reset
                 let b = (opcode >> 3) & 0x07;
-
-                // Check for (HL) case
-                if opcode & 0x07 == 0x06 {
-                    let v = self.res(mmu.read(self.regs.hl()), b);
-                    mmu.write(self.regs.hl(), v);
-                    4
-                } else {
-                    let v = self.res(self.code_to_reg(opcode), b);
-                    self.set_reg_from_code(opcode, v);
-                    2
-                }
+                let v = self.res(self.code_to_reg(mmu, opcode), b);
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
 
             // SET
             0xC0..=0xFF => {
                 // Decode bit to set
                 let b = (opcode >> 3) & 0x07;
-
-                // Check for (HL) case
-                if opcode & 0x07 == 0x06 {
-                    let v = self.set(mmu.read(self.regs.hl()), b);
-                    mmu.write(self.regs.hl(), v);
-                    4
-                } else {
-                    let v = self.set(self.code_to_reg(opcode), b);
-                    self.set_reg_from_code(opcode, v);
-                    2
-                }
+                let v = self.set(self.code_to_reg(mmu, opcode), b);
+                self.set_reg_from_code(mmu, opcode, v);
+                if mem_access {4} else {2}
             }
         }
     }
 
-    fn code_to_reg(&self, opcode: u8) -> u8 {
+    fn code_to_reg(&self, mmu: &Mmu, opcode: u8) -> u8 {
         match opcode & 0x07 {
             0x00 => self.regs.b,
             0x01 => self.regs.c,
@@ -518,12 +403,13 @@ impl Cpu {
             0x03 => self.regs.e,
             0x04 => self.regs.h,
             0x05 => self.regs.l,
+            0x06 => mmu.read(self.regs.hl()),
             0x07 => self.regs.a,
-            _ => panic!("invalid register code, use (HL) specific functionality")
+            _ => panic!("invalid register code")
         }
     }
 
-    fn set_reg_from_code(&mut self, opcode: u8, v: u8) {
+    fn set_reg_from_code(&mut self, mmu: &mut Mmu, opcode: u8, v: u8) {
         match opcode & 0x07 {
             0x00 => self.regs.b = v,
             0x01 => self.regs.c = v,
@@ -531,6 +417,7 @@ impl Cpu {
             0x03 => self.regs.e = v,
             0x04 => self.regs.h = v,
             0x05 => self.regs.l = v,
+            0x06 => mmu.write(self.regs.hl(), v),
             0x07 => self.regs.a = v,
             _ => panic!("invalid register code")
         }
