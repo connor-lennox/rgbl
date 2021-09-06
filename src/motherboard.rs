@@ -1,6 +1,6 @@
 use crate::cpu::Cpu;
-use crate::cartridge::{self, CartridgeType, Cartridge};
-use crate::memory::{MemoryType, DMGMemory, Memory};
+use crate::cartridge::{self};
+use crate::memory::{MemoryType, DMGMemory};
 use crate::mmu::Mmu;
 
 pub struct Motherboard {
