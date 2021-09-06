@@ -24,8 +24,14 @@ impl Mmu {
         } else if addr >= 0xC000 && addr < 0xE000 {
             // Work RAM
             self.memory.read(addr)
+        } else if addr >= 0xE000 && addr < 0xFE00 {
+            // Echo RAM
+            self.memory.read(addr - 0x2000)  
+        } else if addr >= 0xFF00 {
+            // IO Registers, High RAM, and Interrupt Enable Register
+            self.memory.read(addr)
         } else {
-            panic!("Invalid memory read at address {}", addr);
+            panic!("Invalid memory read at address 0x{:02X}", addr);
         }
     }
 
@@ -42,17 +48,23 @@ impl Mmu {
         } else if addr >= 0xC000 && addr < 0xE000 {
             // Work RAM
             self.memory.write(addr, value);
+        } else if addr >= 0xE000 && addr < 0xFE00 {
+            // Echo RAM
+            self.memory.write(addr - 0x2000, value);
+        } else if addr >= 0xFF00 {
+            // IO Registers, High RAM, and Interrupt Enable Register
+            self.memory.write(addr, value)
         } else {
-            panic!("Invalid memory write at address {}", addr);
+            panic!("Invalid memory write at address 0x{:02X}", addr);
         }
     }
 
     pub fn read_word(&self, addr: u16) -> u16 {
-        ((self.read(addr) as u16) << 8) | (self.read(addr+1) as u16)
+        ((self.read(addr + 1) as u16) << 8) | (self.read(addr) as u16)
     }
 
     pub fn write_word(&mut self, addr: u16, value: u16) {
-        self.write(addr, (value >> 8) as u8);
-        self.write(addr+1, (value & 0xFF) as u8);
+        self.write(addr + 1, (value >> 8) as u8);
+        self.write(addr, (value & 0xFF) as u8);
     }
 }

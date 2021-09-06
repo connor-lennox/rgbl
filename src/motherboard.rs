@@ -18,4 +18,8 @@ impl Motherboard {
             )
         }
     }
+
+    pub fn tick(&mut self) {
+        self.cpu.execute(&mut self.mmu);
+    }
 }

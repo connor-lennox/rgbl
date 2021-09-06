@@ -14,7 +14,7 @@ impl Flags {
     }
 }
 
-struct CpuRegisters {
+pub struct CpuRegisters {
     pub a: u8,
     pub flags: u8,
     pub b: u8,
@@ -29,7 +29,7 @@ impl CpuRegisters {
     pub fn new() -> Self {
         CpuRegisters {
             a: 0x01,
-            flags: 0x80,
+            flags: 0xB0,
             b: 0x00,
             c: 0x13,
             d: 0x00,
@@ -92,10 +92,10 @@ impl CpuRegisters {
 }
 
 pub struct Cpu {
-    regs: CpuRegisters,
+    pub regs: CpuRegisters,
 
-    sp: u16,
-    pc: u16,
+    pub sp: u16,
+    pub pc: u16,
 }
 
 impl Cpu {
@@ -108,7 +108,7 @@ impl Cpu {
         }
     }
 
-    fn execute(&mut self, mmu: &mut Mmu) -> u8 {
+    pub fn execute(&mut self, mmu: &mut Mmu) -> u8 {
         // Returns the number of m-cycles the opcode took
         let opcode: u8 = self.read_u8(mmu);
 
@@ -264,7 +264,7 @@ impl Cpu {
             0xD6 => { let v = self.read_u8(mmu); self.regs.a = self.sub(v, false); 2 }
             0xD7 => { self.rst(mmu, 0x10); 4 }
             0xD8 => { if self.regs.get_flag(Flags::C) { self.ret(mmu); 5 } else { 2 } }
-            0xD9 => { self.ret(mmu); self.enable_interrupts(); 4 }
+            0xD9 => { self.ret(mmu); self.enable_interrupts(mmu); 4 }
             0xDA => { if self.regs.get_flag(Flags::C) { self.jump_imm(mmu); 4 } else { 3 } }
 
             0xDC => { if self.regs.get_flag(Flags::C) { self.call(mmu); 6 } else { 3 } }
@@ -289,7 +289,7 @@ impl Cpu {
             0xF0 => { self.regs.a = mmu.read(0xFF00 + self.read_u8(mmu) as u16); 3 }
             0xF1 => { let v = self.pop_stack(mmu) & 0xFFF0; self.regs.set_af(v); 3 }
             0xF2 => { self.regs.a = mmu.read(0xFF00 + self.regs.c as u16); 2 }
-            0xF3 => { self.disable_interrupts(); 1 }
+            0xF3 => { self.disable_interrupts(mmu); 1 }
 
             0xF5 => { self.push_stack(mmu, self.regs.af()); 4 }
             0xF6 => { let v = self.read_u8(mmu); self.regs.a = self.or(v); 2 }
@@ -297,7 +297,7 @@ impl Cpu {
             0xF8 => { let v = self.add_imm(mmu, self.sp); self.regs.set_hl(v); 3 }
             0xF9 => { self.sp = self.regs.hl(); 2 }
             0xFA => { let a = self.read_u16(mmu); self.regs.a = mmu.read(a); 4 }
-            0xFB => { self.enable_interrupts(); 1 }
+            0xFB => { self.enable_interrupts(mmu); 1 }
 
             0xFE => { let v = self.read_u8(mmu); self.cp(v); 2 }
             0xFF => { self.rst(mmu, 0x38); 4 }
@@ -432,7 +432,7 @@ impl Cpu {
 
     fn read_u16(&mut self, mmu: &Mmu) -> u16 {
         // Read a u16 immediate and increment PC by 2
-        let v = ((mmu.read(self.pc) as u16) << 8) | (mmu.read(self.pc + 1) as u16);
+        let v = mmu.read_word(self.pc);
         self.pc += 2;
         v
     }
@@ -705,11 +705,12 @@ impl Cpu {
         self.pc = addr;
     }
 
-    fn enable_interrupts(&mut self) {
-        todo!("enable interrupts");
+    fn enable_interrupts(&mut self, mmu: &mut Mmu) {
+        // TODO: does anything else have to happen here?
+        mmu.write(0xFFFF, 1);
     }
 
-    fn disable_interrupts(&mut self) {
-        todo!("disable interrupts");
+    fn disable_interrupts(&mut self, mmu: &mut Mmu) {
+        mmu.write(0xFFFF, 0);
     }
 }
