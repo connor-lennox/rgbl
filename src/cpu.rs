@@ -76,11 +76,11 @@ impl CpuRegisters {
         self.flags = (value & 0xFF) as u8;
     }
 
-    pub fn get_flag(&self, flag: Flags) -> bool {
+    fn get_flag(&self, flag: Flags) -> bool {
         (self.flags & flag.as_bits()) != 0
     }
 
-    pub fn set_flag(&mut self, flag: Flags, value: bool) {
+    fn set_flag(&mut self, flag: Flags, value: bool) {
         let m = flag.as_bits();
         if value {
             self.flags |= m;
@@ -166,7 +166,7 @@ impl Cpu {
 
             0x30 => { if !self.regs.get_flag(Flags::C) { self.jump_rel(mmu); 3 } else { self.pc += 1; 2 } }
             0x31 => { let v = self.read_u16(mmu); self.sp = v; 3 }
-            0x32 => { mmu.write(self.regs.hli(), self.regs.a); 2 }
+            0x32 => { mmu.write(self.regs.hld(), self.regs.a); 2 }
             0x33 => { self.sp = self.sp.wrapping_add(1); 2 }
             0x34 => { let v = self.increment(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 3 }
             0x35 => { let v = self.decrement(mmu.read(self.regs.hl())); mmu.write(self.regs.hl(), v); 3 }
@@ -240,34 +240,34 @@ impl Cpu {
 
             0xC0 => { if !self.regs.get_flag(Flags::Z) { self.ret(mmu); 5 } else { 2 } }
             0xC1 => { let v = self.pop_stack(mmu); self.regs.set_bc(v); 3 }
-            0xC2 => { if !self.regs.get_flag(Flags::Z) { self.jump_imm(mmu); 4 } else { 3 } }
-            0xC3 => { self.jump_imm(mmu); 4 }
-            0xC4 => { if !self.regs.get_flag(Flags::Z) { self.call(mmu); 6 } else { 3 } }
+            0xC2 => { self.jump_imm(mmu, !self.regs.get_flag(Flags::Z)) }
+            0xC3 => { self.jump_imm(mmu, true) }
+            0xC4 => { self.call(mmu, !self.regs.get_flag(Flags::Z)) }
             0xC5 => { self.push_stack(mmu, self.regs.bc()); 4 }
             0xC6 => { let v = self.read_u8(mmu); self.regs.a = self.add(v, false); 2 }
             0xC7 => { self.rst(mmu, 0x00); 4 }
             0xC8 => { if self.regs.get_flag(Flags::Z) { self.ret(mmu); 5 } else { 2 } }
             0xC9 => { self.ret(mmu); 4 }
-            0xCA => { if self.regs.get_flag(Flags::Z) { self.jump_imm(mmu); 4 } else { 3 } }
+            0xCA => { self.jump_imm(mmu, self.regs.get_flag(Flags::Z)) }
             0xCB => { self.execute_cb(mmu) }
-            0xCC => { if self.regs.get_flag(Flags::Z) { self.call(mmu); 6 } else { 3 } }
-            0xCD => { self.call(mmu); 6 }
+            0xCC => { self.call(mmu, self.regs.get_flag(Flags::Z)) }
+            0xCD => { self.call(mmu, true) }
             0xCE => { let v = self.read_u8(mmu); self.regs.a = self.add(v, true); 2 }
             0xCF => { self.rst(mmu, 0x08); 4 }
             
             0xD0 => { if !self.regs.get_flag(Flags::C) { self.ret(mmu); 5 } else { 2 } }
             0xD1 => { let v = self.pop_stack(mmu); self.regs.set_de(v); 3 }
-            0xD2 => { if !self.regs.get_flag(Flags::C) { self.jump_imm(mmu); 4 } else { 3 } }
+            0xD2 => { self.jump_imm(mmu, !self.regs.get_flag(Flags::C)) }
 
-            0xD4 => { if !self.regs.get_flag(Flags::C) { self.call(mmu); 6 } else { 3 } }
+            0xD4 => { self.call(mmu, !self.regs.get_flag(Flags::C)) }
             0xD5 => { self.push_stack(mmu, self.regs.de()); 4 }
             0xD6 => { let v = self.read_u8(mmu); self.regs.a = self.sub(v, false); 2 }
             0xD7 => { self.rst(mmu, 0x10); 4 }
             0xD8 => { if self.regs.get_flag(Flags::C) { self.ret(mmu); 5 } else { 2 } }
             0xD9 => { self.ret(mmu); self.enable_interrupts(mmu); 4 }
-            0xDA => { if self.regs.get_flag(Flags::C) { self.jump_imm(mmu); 4 } else { 3 } }
+            0xDA => { self.jump_imm(mmu, self.regs.get_flag(Flags::C)) }
 
-            0xDC => { if self.regs.get_flag(Flags::C) { self.call(mmu); 6 } else { 3 } }
+            0xDC => { self.call(mmu, self.regs.get_flag(Flags::C)) }
 
             0xDE => { let v = self.read_u8(mmu); self.regs.a = self.sub(v, true); 2 }
             0xDF => { self.rst(mmu, 0x18); 4 }
@@ -286,7 +286,7 @@ impl Cpu {
             0xEE => { let v = self.read_u8(mmu); self.regs.a = self.xor(v); 2 }
             0xEF => { self.rst(mmu, 0x28); 4 }
             
-            0xF0 => { self.regs.a = mmu.read(0xFF00 + self.read_u8(mmu) as u16); 3 }
+            0xF0 => { self.regs.a = mmu.read(0xFF00 + (self.read_u8(mmu) as u16)); 3 }
             0xF1 => { let v = self.pop_stack(mmu) & 0xFFF0; self.regs.set_af(v); 3 }
             0xF2 => { self.regs.a = mmu.read(0xFF00 + self.regs.c as u16); 2 }
             0xF3 => { self.disable_interrupts(mmu); 1 }
@@ -648,7 +648,7 @@ impl Cpu {
     fn add_regs(&mut self, lhs: u16, rhs: u16) -> u16 {
         // Add two u16 values, setting registers as needed
         let res = lhs.wrapping_add(rhs);
-        self.regs.set_flag(Flags::H, (lhs & 0x07FF) + (rhs & 0x07FF) > 0x07FF);
+        self.regs.set_flag(Flags::H, ((lhs & 0x0FFF) + (rhs & 0x0FFF)) > 0x0FFF);
         self.regs.set_flag(Flags::C, lhs > 0xFFFF - rhs);
         self.regs.set_flag(Flags::N, false);
         res
@@ -665,9 +665,15 @@ impl Cpu {
         res
     }
 
-    fn jump_imm(&mut self, mmu: &Mmu) {
+    fn jump_imm(&mut self, mmu: &Mmu, condition: bool) -> u8 {
         // Jump to an immediate u16 address
-        self.pc = self.read_u16(mmu);
+        let addr = self.read_u16(mmu);
+        if condition {
+            self.pc = addr;
+            4
+        } else {
+            3
+        }
     }
 
     fn jump_rel(&mut self, mmu: &Mmu) {
@@ -677,21 +683,29 @@ impl Cpu {
     }
 
     fn push_stack(&mut self, mmu: &mut Mmu, value: u16) {
-        // Push a value onto the stack, then decrement stack pointer 2
-        mmu.write_word(self.sp - 1, value);
+        // Decrement stack pointer and write value
         self.sp -= 2;
+        mmu.write_word(self.sp, value);
     }
 
     fn pop_stack(&mut self, mmu: &Mmu) -> u16 {
         // Pop a value off the stack, then increment stack pointer 2
+        let v = mmu.read_word(self.sp);
         self.sp += 2;
-        mmu.read_word(self.sp - 1)
+        v
     }
 
-    fn call(&mut self, mmu: &mut Mmu) {
+    fn call(&mut self, mmu: &mut Mmu, condition: bool) -> u8 {
         // Call the function at an immediate address by pushing the current PC to stack and setting PC
-        self.push_stack(mmu, self.pc);
-        self.pc = self.read_u16(mmu);
+        // Make sure to read the address before pushing the PC onto the stack!
+        let addr = self.read_u16(mmu);
+        if condition {
+            self.push_stack(mmu, self.pc);
+            self.pc = addr;
+            6
+        } else {
+            3
+        }
     }
 
     fn ret(&mut self, mmu: &Mmu) {
