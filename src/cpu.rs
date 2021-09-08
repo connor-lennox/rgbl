@@ -120,7 +120,7 @@ impl Cpu {
             0x04 => { self.regs.b = self.increment(self.regs.b); 1 }
             0x05 => { self.regs.b = self.decrement(self.regs.b); 1 }
             0x06 => { self.regs.b = self.read_u8(mmu); 2 }
-            0x07 => { self.regs.a = self.rlc(self.regs.a); 1 }
+            0x07 => { self.regs.a = self.rlc(self.regs.a); self.regs.set_flag(Flags::Z, false); 1 }
             0x08 => { let a = self.read_u16(mmu); mmu.write_word(a, self.sp); 5 }
             0x09 => { let v = self.add_regs(self.regs.hl(), self.regs.bc()); self.regs.set_hl(v); 2 }
             0x0A => { self.regs.a = mmu.read(self.regs.bc()); 2 }
@@ -128,7 +128,7 @@ impl Cpu {
             0x0C => { self.regs.c = self.increment(self.regs.c); 1 }
             0x0D => { self.regs.c = self.decrement(self.regs.c); 1 }
             0x0E => { self.regs.c = self.read_u8(mmu); 2 }
-            0x0F => { self.regs.a = self.rrc(self.regs.a); 1 }
+            0x0F => { self.regs.a = self.rrc(self.regs.a); self.regs.set_flag(Flags::Z, false); 1 }
 
             0x10 => { todo!("stop"); 1 }
             0x11 => { let v = self.read_u16(mmu); self.regs.set_de(v); 3 }
@@ -137,7 +137,7 @@ impl Cpu {
             0x14 => { self.regs.d = self.increment(self.regs.d); 1 }
             0x15 => { self.regs.d = self.decrement(self.regs.d); 1 }
             0x16 => { self.regs.d = self.read_u8(mmu); 2 }
-            0x17 => { self.regs.a = self.rl(self.regs.a); 1 }
+            0x17 => { self.regs.a = self.rl(self.regs.a); self.regs.set_flag(Flags::Z, false); 1 }
             0x18 => { self.jump_rel(mmu); 3 }
             0x19 => { let v = self.add_regs(self.regs.hl(), self.regs.de()); self.regs.set_hl(v); 2 }
             0x1A => { self.regs.a = mmu.read(self.regs.de()); 2 }
@@ -145,7 +145,7 @@ impl Cpu {
             0x1C => { self.regs.e = self.increment(self.regs.e); 1 }
             0x1D => { self.regs.e = self.decrement(self.regs.e); 1 }
             0x1E => { self.regs.e = self.read_u8(mmu); 2 }
-            0x1F => { self.regs.a = self.rr(self.regs.a); 1 }
+            0x1F => { self.regs.a = self.rr(self.regs.a); self.regs.set_flag(Flags::Z, false); 1 }
 
             0x20 => { if !self.regs.get_flag(Flags::Z) { self.jump_rel(mmu); 3 } else { self.pc += 1; 2 } }
             0x21 => { let v = self.read_u16(mmu); self.regs.set_hl(v); 3 }
@@ -154,7 +154,7 @@ impl Cpu {
             0x24 => { self.regs.h = self.increment(self.regs.h); 1 }
             0x25 => { self.regs.h = self.decrement(self.regs.h); 1 }
             0x26 => { self.regs.h = self.read_u8(mmu); 2 }
-            0x27 => { todo!("DAA"); 1 },
+            0x27 => { self.daa(); 1 },
             0x28 => { if self.regs.get_flag(Flags::Z) { self.jump_rel(mmu); 3 } else { self.pc += 1; 2 } }
             0x29 => { let v = self.add_regs(self.regs.hl(), self.regs.hl()); self.regs.set_hl(v); 2 }
             0x2A => { self.regs.a = mmu.read(self.regs.hli()); 2 }
@@ -279,7 +279,7 @@ impl Cpu {
             0xE5 => { self.push_stack(mmu, self.regs.hl()); 4 }
             0xE6 => { let v = self.read_u8(mmu); self.regs.a = self.and(v); 2 }
             0xE7 => { self.rst(mmu, 0x20); 4 }
-            0xE8 => { self.pc = self.add_imm(mmu, self.pc); 4 }
+            0xE8 => { self.sp = self.add_imm(mmu, self.sp); 4 }
             0xE9 => { self.pc = self.regs.hl(); 1 }
             0xEA => { let a = self.read_u16(mmu); mmu.write(a, self.regs.a); 4 }
 
@@ -628,7 +628,7 @@ impl Cpu {
 
     fn bit(&mut self, v: u8, b: u8) {
         // Check bit b in v
-        self.regs.set_flag(Flags::Z, v & (1 << b) != 0);
+        self.regs.set_flag(Flags::Z, v & (1 << b) == 0);
 
         // Reset flags
         self.regs.set_flag(Flags::N, false);
@@ -717,6 +717,39 @@ impl Cpu {
         // Push the current address to the stack and reset to address
         self.push_stack(mmu, self.pc);
         self.pc = addr;
+    }
+
+    fn daa(&mut self)
+    {
+        // Binary Coded Decimal conversion (applies to A register)
+        let mut a = self.regs.a;
+
+        if !self.regs.get_flag(Flags::N) {
+            // Addition case
+            if self.regs.get_flag(Flags::C) || (a > 0x99) {
+                a = a.wrapping_add(0x60);
+                self.regs.set_flag(Flags::C, true);
+            }
+            if self.regs.get_flag(Flags::H) || ((a & 0x0f) > 0x09) {
+                a = a.wrapping_add(0x06);
+                self.regs.set_flag(Flags::H, true);
+            }
+        } else {
+            // Subtraction case
+            if self.regs.get_flag(Flags::C) {
+                a = a.wrapping_sub(0x60);
+            }
+            if self.regs.get_flag(Flags::H) {
+                a = a.wrapping_sub(0x06);
+            }
+        }
+
+        // Assign register value
+        self.regs.a = a;
+
+        // Reset flags
+        self.regs.set_flag(Flags::Z, a == 0);
+        self.regs.set_flag(Flags::H, false);
     }
 
     fn enable_interrupts(&mut self, mmu: &mut Mmu) {
