@@ -20,7 +20,7 @@ pub struct DMGMemory {
 
 impl DMGMemory {
     pub fn new() -> Self {
-        DMGMemory { vram: [0; 8192], wram: [0; 8192], io_regs: [0; 512], high_ram: [0; 512] }
+        DMGMemory { vram: [0; 8192], wram: [0; 8192], io_regs: [0xFF; 512], high_ram: [0; 512] }
     }
 }
 
