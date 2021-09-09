@@ -97,7 +97,9 @@ impl Cartridge for MBC1 {
         } else if addr >= 0x2000 && addr < 0x4000 {
             // Writing between 0x2000 and 0x3fff sets the active ROM bank
             // but, it only sets the bottom 5 bits!
-            self.active_rom_bank &= ((value & 0x1f) | 0xE0) as usize;
+            // If all the used bits of the value are 0, increment it by one. 
+            let bank_value = if value & 0x1F == 0 { 0x1 } else { value };
+            self.active_rom_bank = ((bank_value & 0x1F) | (self.active_rom_bank as u8 & 0xE0)) as usize;
         } else if addr >= 0x4000 && addr < 0x6000 {
             // Writing betweeen 0x4000 and 0x5fff sets the top 2 bits 
             // of the active ROM bank if the ROM is big enough, or sets 
@@ -110,7 +112,7 @@ impl Cartridge for MBC1 {
                 self.active_ram_bank = (value & 0x3) as usize;
             // Can only set active RAM bank on 32 kb RAM carts
             } else if self.banking_mode == true && self.ram_size == 32768 {
-                self.active_rom_bank &= ((value & 0x60) | 0x9f) as usize;
+                self.active_rom_bank = ((value & 0x60) | (self.active_rom_bank as u8 & 0x9f)) as usize;
             }
             // This write does nothing if neither of the above conditions are met
         } else if addr >= 0x6000 && addr < 0x8000 {
