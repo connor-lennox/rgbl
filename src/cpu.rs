@@ -94,8 +94,12 @@ impl CpuRegisters {
 pub struct Cpu {
     pub regs: CpuRegisters,
 
+    // Stack Pointer, Program Counter, Interrupt Enable
     pub sp: u16,
     pub pc: u16,
+    pub ime: bool,
+
+    pub halted: bool,
 }
 
 impl Cpu {
@@ -105,10 +109,30 @@ impl Cpu {
 
             pc: 0x0100,
             sp: 0xFFFE,
+            ime: false,
+
+            halted: false,
         }
     }
 
     pub fn execute(&mut self, mmu: &mut Mmu) -> u8 {
+        // Before executing an instruction, first check to see if we have an interrupt ready.
+        // But, only when the IME flag is set.
+        let (interrupt_number, interrupt_waiting) = self.check_interrupts(mmu);
+        if interrupt_waiting {
+            self.halted = false;
+            if self.ime {
+                // If an interrupt is serviced, it takes 5 m-cycles.
+                self.service_interrupt(mmu, interrupt_number);
+                return 5;
+            }
+        }
+
+        // If the CPU is in a halted state and we didn't just service an interrupt, perform a NOP
+        if self.halted {
+            return 1;
+        }
+
         // Returns the number of m-cycles the opcode took
         let opcode: u8 = self.read_u8(mmu);
 
@@ -182,7 +206,7 @@ impl Cpu {
             0x3F => { self.regs.set_flag(Flags::H, false); self.regs.set_flag(Flags::N, false); self.regs.set_flag(Flags::C, !self.regs.get_flag(Flags::C)); 1 }
 
             // HALT
-            0x76 => { todo!("halt"); 1 }
+            0x76 => { self.halt(); 1 }
 
             // LD dest, source
             0x40..=0x7F => {
@@ -264,7 +288,7 @@ impl Cpu {
             0xD6 => { let v = self.read_u8(mmu); self.regs.a = self.sub(v, false); 2 }
             0xD7 => { self.rst(mmu, 0x10); 4 }
             0xD8 => { if self.regs.get_flag(Flags::C) { self.ret(mmu); 5 } else { 2 } }
-            0xD9 => { self.ret(mmu); self.enable_interrupts(mmu); 4 }
+            0xD9 => { self.ret(mmu); self.enable_interrupts(); 4 }
             0xDA => { self.jump_imm(mmu, self.regs.get_flag(Flags::C)) }
 
             0xDC => { self.call(mmu, self.regs.get_flag(Flags::C)) }
@@ -289,7 +313,7 @@ impl Cpu {
             0xF0 => { self.regs.a = mmu.read(0xFF00 + (self.read_u8(mmu) as u16)); 3 }
             0xF1 => { let v = self.pop_stack(mmu) & 0xFFF0; self.regs.set_af(v); 3 }
             0xF2 => { self.regs.a = mmu.read(0xFF00 + self.regs.c as u16); 2 }
-            0xF3 => { self.disable_interrupts(mmu); 1 }
+            0xF3 => { self.disable_interrupts(); 1 }
 
             0xF5 => { self.push_stack(mmu, self.regs.af()); 4 }
             0xF6 => { let v = self.read_u8(mmu); self.regs.a = self.or(v); 2 }
@@ -297,7 +321,7 @@ impl Cpu {
             0xF8 => { let v = self.add_imm(mmu, self.sp); self.regs.set_hl(v); 3 }
             0xF9 => { self.sp = self.regs.hl(); 2 }
             0xFA => { let a = self.read_u16(mmu); self.regs.a = mmu.read(a); 4 }
-            0xFB => { self.enable_interrupts(mmu); 1 }
+            0xFB => { self.enable_interrupts(); 1 }
 
             0xFE => { let v = self.read_u8(mmu); self.cp(v); 2 }
             0xFF => { self.rst(mmu, 0x38); 4 }
@@ -752,12 +776,37 @@ impl Cpu {
         self.regs.set_flag(Flags::H, false);
     }
 
-    fn enable_interrupts(&mut self, mmu: &mut Mmu) {
-        // TODO: does anything else have to happen here?
-        mmu.write(0xFFFF, 1);
+    fn enable_interrupts(&mut self) {
+        self.ime = true;
     }
 
-    fn disable_interrupts(&mut self, mmu: &mut Mmu) {
-        mmu.write(0xFFFF, 0);
+    fn disable_interrupts(&mut self) {
+        self.ime = false;
+    }
+    
+    fn halt(&mut self) {
+        self.halted = true;
+    }
+
+    fn check_interrupts(&mut self, mmu: &Mmu) -> (u8, bool) {
+        // Compare the Interrupt Enable register (0xFFFF) to the Interrupt Flag register (0xFF0F)
+        let if_reg = mmu.read(0xFF0F);
+        let interrupts = mmu.read(0xFFFF) & if_reg;
+
+        match interrupts {
+            0 => (0, false),
+            _ => (interrupts.trailing_zeros() as u8, true)
+        }    
+    }
+
+    fn service_interrupt(&mut self, mmu: &mut Mmu, interrupt_number: u8) {
+        // Do work for interrupt based on interrupt number
+
+        // Disable IME and IF bit for this interrupt
+        self.ime = false;
+        mmu.write(0xFF0F, mmu.read(0xFF0F) & (!(1 << interrupt_number)));
+
+        // Push the current PC onto the stack and set PC to interrupt vector
+        self.rst(mmu, 0x40 + (0x08 * interrupt_number) as u16);
     }
 }
