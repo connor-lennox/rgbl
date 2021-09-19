@@ -27,12 +27,15 @@ impl Mmu {
         } else if addr >= 0xE000 && addr < 0xFE00 {
             // Echo RAM
             self.memory.read(addr - 0x2000)
+        } else if addr >= 0xFE00 && addr < 0xFEA0 {
+            // OAM
+            self.memory.read(addr)
+        } else if addr >= 0xFEA0 && addr < 0xFF00 {
+            // Forbidden memory
+            0xFF
         } else if addr == 0xFF00 {
             // TODO: Temporary! Stub input register for testing!
             0xFF
-        } else if addr == 0xFF44 {
-            // TODO: Temporary! Stub LY register for CPU testing!
-            0x90
         } else if addr >= 0xFF00 {
             // IO Registers, High RAM, and Interrupt Enable Register
             self.memory.read(addr)
@@ -57,6 +60,11 @@ impl Mmu {
         } else if addr >= 0xE000 && addr < 0xFE00 {
             // Echo RAM
             self.memory.write(addr - 0x2000, value);
+        } else if addr >= 0xFE00 && addr < 0xFEA0 {
+            // OAM
+            self.memory.write(addr, value);
+        } else if addr >= 0xFEA0 && addr < 0xFF00 {
+            // Forbidden memory, ignore write
         } else if addr >= 0xFF00 {
             // IO Registers, High RAM, and Interrupt Enable Register
             self.memory.write(addr, value)
