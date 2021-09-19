@@ -18,6 +18,21 @@
             },
             "args": ["./carts/Tetris.gb"],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug DMG Acid2",
+            "cargo": {
+                "args": [
+                    "build",
+                ],
+                "filter": {
+                    "name": "rgbl"
+                }
+            },
+            "args": ["./carts/dmg-acid2.gb"],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
