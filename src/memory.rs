@@ -56,10 +56,21 @@ impl Memory for DMGMemory {
             self.oam[addr as usize - 0xFE00] = value;  
         } else if addr >= 0xFF00 && addr < 0xFF80 {
             self.io_regs[addr as usize - 0xFF00] = value;
+            if addr == 0xFF46 {
+                self.do_dma(value);
+            }
         } else if addr >= 0xFF80 {
             self.high_ram[addr as usize - 0xFF80] = value;
         } else {
             panic!("invalid DMGMemory read address: {}", addr);
+        }
+    }
+}
+
+impl DMGMemory {
+    fn do_dma(&mut self, src: u8) {
+        for i in 0..=0x9F {
+            self.write(0xFE00 | i, self.read((src as u16) << 8 | i));
         }
     }
 }
