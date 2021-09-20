@@ -1,3 +1,5 @@
+use winit::platform::unix::x11::ffi::XcursorChunkHeader;
+
 use crate::{lcd::Lcd, mmu::Mmu};
 
 #[derive(PartialEq)]
@@ -41,7 +43,7 @@ impl Ppu {
             let new_ly = (ly + 1) % 154;
 
             // Indicate when window reached
-            if new_ly >= mmu.read(0xFF4A) { self.reached_window = true; }
+            if new_ly == mmu.read(0xFF4A) { self.reached_window = true; }
 
             mmu.write(0xFF44, new_ly);
 
@@ -113,57 +115,69 @@ impl Ppu {
             // Retrieve background scroll X and scroll Y
             let (scy, scx) = (mmu.read(0xFF42), mmu.read(0xFF43));
             // Select the background tilemap location based on bit 3 of the LCDC register
-            let bg_tilemap: u16 = if lcdc & 0b00001000 != 0 { 0x9C00 } else { 0x9800 };
+            let bg_tilemap: u16 = if (lcdc & 0b00001000) != 0 { 0x9C00 } else { 0x9800 };
 
             let bg_palette: u8 = mmu.read(0xFF47);
 
-            for x_counter in 0..20 {
+            for x_counter in 0..21 {
+                let tile_y = (ly as u16 + scy as u16) & 0xFF;
                 let addr = bg_tilemap +
-                                (x_counter + scx as u16 / 8) +
-                                (((ly as u16 + scy as u16) & 0xFF) / 8) * 32;
+                                ((x_counter + (scx as u16 / 8)) & 0x1F) +
+                                (((tile_y / 8) & 0x1F) * 32);
                 let tile_num = mmu.read(addr);
                 let tile_addr: u16 = if tile_mode_8000 {
-                    0x8000 + (tile_num as u16) * 16 + ((ly as u16 + scy as u16) % 8) * 2
+                    0x8000 + (tile_num as u16) * 16
                 } else {
-                    0x8800 + (tile_num as i8 as i16 + 128) as u16 * 16 + ((ly as u16 + scy as u16) % 8) * 2
-                };
+                    let normed_tile_num = (tile_num as i8 as i16 + 128) as u16;
+                    0x8800 + normed_tile_num * 16
+                } + (tile_y % 8) * 2;
 
                 let b1 = mmu.read(tile_addr);
                 let b2 = mmu.read(tile_addr + 1);
 
-                // TODO: SCX!
                 for px in 0..8 {
-                    let px_val = if b1 & (1 << 7 - px) != 0 { 1 } else { 0 } | if b2 & (1 << 7 - px) != 0 { 2 } else { 0 };
-                    let color = (bg_palette >> (px_val * 2)) & 0x3;
-                    line[(x_counter * 8 + px) as usize] = color;
+                    if (x_counter * 8 + px) > (scx % 8) as u16 {
+                        let linepos = (x_counter * 8 + px - (scx % 8) as u16) as usize;
+                        if linepos < 160 {
+                            let px_val = if b1 & (1 << 7 - px) != 0 { 1 } else { 0 } | if b2 & (1 << 7 - px) != 0 { 2 } else { 0 };
+                            let color = (bg_palette >> (px_val * 2)) & 0x3;
+                            line[linepos] = color;
+                        }
+                    }
                 }
             }
 
 
             // Window
-            // if lcdc & 0b00100000 != 0 && self.reached_window && mmu.read(0xFF4B) >= 7 {
-            //     for x_counter in 0..20 {
-            //         let addr = bg_tilemap +
-            //                         x_counter +
-            //                         (self.window_line_counter / 8) * 32;
-            //         let tile_num = mmu.read(addr);
-            //         let tile_addr: u16 = if tile_mode_8000 {
-            //             0x8000 + (tile_num as u16) * 16 + (self.window_line_counter % 8) * 2
-            //         } else {
-            //             0x8800 + (tile_num as i8 as i16 + 128) as u16 * 16 + (self.window_line_counter % 8) * 2
-            //         };
+            let window_tilemap = if lcdc & 0b01000000 != 0 { 0x9C00 } else { 0x9800 };
+            let wx = mmu.read(0xFF4B);
+            let wy = mmu.read(0xFF4A);
+            if lcdc & 0b00100000 != 0 && ly >= wy && wx >= 7 && wx < 167 {
+                for x_counter in 0..20 {
+                    let addr = window_tilemap +
+                                    (x_counter as u16) +
+                                    (self.window_line_counter / 8) * 32;
+                    let tile_num = mmu.read(addr);
+                    let tile_addr: u16 = if tile_mode_8000 {
+                        0x8000 + (tile_num as u16) * 16 + (self.window_line_counter % 8) * 2
+                    } else {
+                        0x8800 + (tile_num as i8 as i16 + 128) as u16 * 16 + (self.window_line_counter % 8) * 2
+                    };
                     
-            //         let b1 = mmu.read(tile_addr);
-            //         let b2 = mmu.read(tile_addr + 1);
-            //         for px in 0..8 {
-            //             let px_val = if b1 & (1 << 7 - px) != 0 { 1 } else { 0 } | if b2 & (1 << 7 - px) != 0 { 2 } else { 0 };
-            //             let color = (bg_palette >> (px_val * 2)) & 0x3;
-            //             line[(x_counter * 8 + px) as usize] = color;
-            //         }
+                    let b1 = mmu.read(tile_addr);
+                    let b2 = mmu.read(tile_addr + 1);
+                    for px in 0..8 {
+                        let linepos = x_counter as u16 * 8 + (px + wx - 7) as u16;
+                        if linepos < 160 {
+                            let px_val = if b1 & (1 << 7 - px) != 0 { 1 } else { 0 } | if b2 & (1 << 7 - px) != 0 { 2 } else { 0 };
+                            let color = (bg_palette >> (px_val * 2)) & 0x3;
+                            line[linepos as usize] = color;
+                        }
+                    }
+                }
 
-            //         self.window_line_counter += 1;
-            //     }
-            // }
+                self.window_line_counter += 1;
+            }
         }
 
 
@@ -209,8 +223,7 @@ impl Ppu {
                                 priority[linepos] = x;
 
                                 if color == 0 { sprite_line[linepos] = line[linepos]; }
-                                else if line[linepos] == 0 && background_priority { sprite_line[linepos] = color; }
-                                else if !background_priority { sprite_line[linepos] = color; }
+                                else if line[linepos] == 0 || !background_priority { sprite_line[linepos] = color; }
                             }
                         }
                     }
