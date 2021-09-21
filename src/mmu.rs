@@ -12,64 +12,30 @@ impl Mmu {
     }
 
     pub fn read(&self, addr: u16) -> u8 {
-        if addr < 0x8000 {
-            // Cartridge ROM
-            self.cartridge.read(addr)
-        } else if addr >= 0x8000 && addr < 0xA000 {
-            // Video RAM
-            self.memory.read(addr)
-        } else if addr >= 0xA000 && addr < 0xC000 {
-            // Cartridge RAM
-            self.cartridge.read(addr)
-        } else if addr >= 0xC000 && addr < 0xE000 {
-            // Work RAM
-            self.memory.read(addr)
-        } else if addr >= 0xE000 && addr < 0xFE00 {
-            // Echo RAM
-            self.memory.read(addr - 0x2000)
-        } else if addr >= 0xFE00 && addr < 0xFEA0 {
-            // OAM
-            self.memory.read(addr)
-        } else if addr >= 0xFEA0 && addr < 0xFF00 {
-            // Forbidden memory
-            0xFF
-        } else if addr == 0xFF00 {
-            // TODO: Temporary! Stub input register for testing!
-            0xFF
-        } else if addr >= 0xFF00 {
-            // IO Registers, High RAM, and Interrupt Enable Register
-            self.memory.read(addr)
-        } else {
-            panic!("Invalid memory read at address 0x{:02X}", addr);
+        match addr {
+            0x0000..=0x7FFF => self.cartridge.read(addr),        // Cartridge ROM
+            0x8000..=0x9FFF => self.memory.read(addr),           // Video RAM
+            0xA000..=0xBFFF => self.cartridge.read(addr),        // Cartridge RAM
+            0xC000..=0xDFFF => self.memory.read(addr),           // Work RAM
+            0xE000..=0xFDFF => self.memory.read(addr - 0x2000),  // Echo RAM
+            0xFE00..=0xFE9F => self.memory.read(addr),           // OAM
+            0xFEA0..=0xFEFF => 0xFF,                             // Forbidden Memory
+            0xFF00 => 0xFF,                                     // TODO: Temp input stub for testing
+            0xFF00.. => self.memory.read(addr)                  // IO Regs, High RAM, Interrupt Enable Register
         }
     }
 
     pub fn write(&mut self, addr: u16, value: u8) {
-        if addr < 0x8000 {
-            // Cartridge ROM
-            self.cartridge.write(addr, value);
-        } else if addr >= 0x8000 && addr < 0xA000 {
-            // Video RAM
-            self.memory.write(addr, value);
-        } else if addr >= 0xA000 && addr < 0xC000 {
-            // Cartridge RAM
-            self.cartridge.write(addr, value);
-        } else if addr >= 0xC000 && addr < 0xE000 {
-            // Work RAM
-            self.memory.write(addr, value);
-        } else if addr >= 0xE000 && addr < 0xFE00 {
-            // Echo RAM
-            self.memory.write(addr - 0x2000, value);
-        } else if addr >= 0xFE00 && addr < 0xFEA0 {
-            // OAM
-            self.memory.write(addr, value);
-        } else if addr >= 0xFEA0 && addr < 0xFF00 {
-            // Forbidden memory, ignore write
-        } else if addr >= 0xFF00 {
-            // IO Registers, High RAM, and Interrupt Enable Register
-            self.memory.write(addr, value)
-        } else {
-            panic!("Invalid memory write at address 0x{:02X}", addr);
+        match addr {
+            0x0000..=0x7FFF => self.cartridge.write(addr, value),       // Cartridge ROM
+            0x8000..=0x9FFF => self.memory.write(addr, value),          // Video RAM
+            0xA000..=0xBFFF => self.cartridge.write(addr, value),       // Cartridge RAM
+            0xC000..=0xDFFF => self.memory.write(addr, value),          // Work RAM
+            0xE000..=0xFDFF => self.memory.write(addr - 0x2000, value), // Echo RAM
+            0xFE00..=0xFE9F => self.memory.write(addr, value),          // OAM
+            0xFEA0..=0xFEFF => (),                                      // Forbidden Memory
+            0xFF00 => (),                                               // TODO: Temp input stub for testing
+            0xFF00.. => self.memory.write(addr, value)                  // IO Regs, High RAM, Interrupt Enable Register
         }
     }
 
