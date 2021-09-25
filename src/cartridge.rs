@@ -19,6 +19,7 @@ pub fn load_cartridge(rom: &Vec<u8>) -> CartridgeType {
     match cart_type {
         0x00 => CartridgeType::NoMBC(NoMBC::new(rom)),
         0x01..=0x03 => CartridgeType::MBC1(MBC1::new(rom, ram_size)),
+        0x0F..=0x13 => CartridgeType::MBC3(MBC3::new(rom, ram_size)),
         _ => panic!("Invalid cartridge type {}", cart_type),
     }
     
@@ -28,6 +29,7 @@ pub fn load_cartridge(rom: &Vec<u8>) -> CartridgeType {
 pub enum CartridgeType {
     NoMBC,
     MBC1,
+    MBC3,
 }
 
 
@@ -122,3 +124,55 @@ impl Cartridge for MBC1 {
     }
 }
 
+
+pub struct MBC3 {
+    // TODO: Finish this
+    rom_size: usize,
+    ram_size: usize,
+    rom: Vec<u8>,
+    ram: Vec<u8>,
+    active_rom_bank: usize,
+    active_ram_bank: usize,
+    ram_active: bool,
+    banking_mode: bool,
+}
+
+impl MBC3 {
+    pub fn new(rom: &Vec<u8>, ram_size: usize) -> Self {
+        let cartrom: Vec<u8> = rom.to_vec();
+        let cartram: Vec<u8> = vec![0; ram_size];
+        let cart: MBC3 = MBC3 {rom_size: cartrom.len(), ram_size, rom: cartrom, ram: cartram, 
+                                active_rom_bank: 1, active_ram_bank: 0, ram_active: false, banking_mode: false};
+        return cart;
+    }
+}
+
+impl Cartridge for MBC3 {
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            0x0000..=0x3FFF => self.rom[addr as usize],
+            0x4000..=0x7FFF => self.rom[self.active_rom_bank * 16384 + (addr - 0x4000) as usize],
+            0xA000..=0xBFFF => self.ram[self.active_ram_bank * 16384 + (addr - 0xA000) as usize],
+            _ => panic!("Tried to read invalid address on MBC3 cartridge: {}", addr)
+        }
+    }
+
+    fn write(&mut self, addr: u16, value: u8) {
+        match addr {
+            0xA000..=0xBFFF => self.ram[self.active_ram_bank * 16384 + (addr - 0xA000) as usize] = value,
+            0x0000..=0x1FFF => self.ram_active = value == 0x0A,
+            0x2000..=0x3FFF => self.active_ram_bank = if value == 0 { 1 } else { value as usize },
+            0x4000..=0x5FFF => {
+                if value <= 0x03 {
+                    self.active_ram_bank = value as usize;
+                } else {
+                    todo!("implement rtc registers")
+                }
+            },
+            0x6000..=0x7FFF => {
+                todo!("latch rtc register")
+            },
+            _ => panic!("Tried to write invalid address on MBC3 cartridge: {}", addr)
+        }
+    }
+}
