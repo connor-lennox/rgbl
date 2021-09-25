@@ -37,7 +37,7 @@ impl Timers {
             };
 
             // Check partial tick progress compared to threshold
-            if self.tima_partial > timer_step {
+            while self.tima_partial > timer_step {
                 // Increment TIMA register, throw interrupt if wrapping
                 let prev_tima = mmu.read(0xFF05);
                 let (new_tima, overflow) = prev_tima.overflowing_add(1);
