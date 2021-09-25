@@ -251,18 +251,20 @@ impl Ppu {
                     let b2 = self.vram[tile_addr + 1];
 
                     for px in 0..8 {
-                        let linepos = (x - 8 + px) as usize;
-                        if linepos > 0 && linepos < 160 {
-                            let sprite_pos = if xflip { px } else { 7 - px };
-                            let px_val: u8 = if b1 & (1 << sprite_pos) != 0 { 1 } else { 0 } 
-                                                | if b2 & (1 << sprite_pos) != 0 { 2 } else { 0 };
-                            let color = (sprite_palette >> (px_val * 2)) & 0x3;
+                        if x + px >= 8 {
+                            let linepos = (x + px - 8) as usize;
+                            if linepos > 0 && linepos < 160 {
+                                let sprite_pos = if xflip { px } else { 7 - px };
+                                let px_val: u8 = if b1 & (1 << sprite_pos) != 0 { 1 } else { 0 } 
+                                                    | if b2 & (1 << sprite_pos) != 0 { 2 } else { 0 };
+                                let color = (sprite_palette >> (px_val * 2)) & 0x3;
 
-                            if priority[linepos] > x {
-                                priority[linepos] = x;
+                                if priority[linepos] > x {
+                                    priority[linepos] = x;
 
-                                if color == 0 { sprite_line[linepos] = line[linepos]; }
-                                else if line[linepos] == 0 || !background_priority { sprite_line[linepos] = color; }
+                                    if color == 0 { sprite_line[linepos] = line[linepos]; }
+                                    else if line[linepos] == 0 || !background_priority { sprite_line[linepos] = color; }
+                                }
                             }
                         }
                     }

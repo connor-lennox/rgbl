@@ -47,8 +47,9 @@ impl Mmu {
                 self.ppu.write(addr, value);
                 if addr == 0xFF46 {
                     let mut data: [u8; 160] = [0; 160];
-                    for i in 0x00..0x9F {
-                        data[i as usize] = self.read(i);
+                    let value_base = (value as u16) << 8;
+                    for i in 0x00..=0x9F {
+                        data[i as usize] = self.read(value_base | i);
                     }
                     self.ppu.dma(&data);
                 }
