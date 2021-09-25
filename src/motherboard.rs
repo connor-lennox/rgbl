@@ -10,7 +10,6 @@ pub struct Motherboard {
     pub cpu: Cpu,
     pub mmu: Mmu,
     pub timers: Timers,
-    pub ppu: Ppu,
     pub lcd: Lcd,
 }
 
@@ -23,7 +22,6 @@ impl Motherboard {
                 cartridge::load_cartridge(cart_rom),
             ),
             timers: Timers::new(),
-            ppu: Ppu::new(),
             lcd: Lcd::new(),
         }
     }
@@ -31,7 +29,7 @@ impl Motherboard {
     pub fn tick(&mut self) -> u8 {
         let mcycles = self.cpu.execute(&mut self.mmu);
         self.timers.tick(&mut self.mmu, mcycles);
-        self.ppu.tick(&mut self.mmu, &mut self.lcd, mcycles);
+        self.mmu.tick(&mut self.lcd, mcycles);
         mcycles
     }
 }
