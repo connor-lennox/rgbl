@@ -3,7 +3,9 @@ extern crate enum_dispatch;
 use std::io::prelude::*;
 use std::io::{self, BufRead};
 use std::fs::File;
+use std::time::Instant;
 
+use joypad::{Joypad, JoypadButton};
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
@@ -14,8 +16,7 @@ use winit_input_helper::WinitInputHelper;
 
 const WIDTH: u32 = 160;
 const HEIGHT: u32 = 144;
-// const WIDTH: u32 = 256;
-// const HEIGHT: u32 = 256;
+const TARGET_FPS: u32 = 60;
 
 mod cartridge;
 mod cpu;
@@ -25,6 +26,7 @@ mod mmu;
 mod timers;
 mod ppu;
 mod lcd;
+mod joypad;
 
 use std::{env, fs};
 use std::path::Path;
@@ -36,6 +38,23 @@ fn get_log_string(mb: &Motherboard) -> String {
     format!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
         mb.cpu.regs.a, mb.cpu.regs.flags, mb.cpu.regs.b, mb.cpu.regs.c, mb.cpu.regs.d, mb.cpu.regs.e, mb.cpu.regs.h, mb.cpu.regs.l, mb.cpu.sp, mb.cpu.pc,
         mb.mmu.read(mb.cpu.pc), mb.mmu.read(mb.cpu.pc+1), mb.mmu.read(mb.cpu.pc+2), mb.mmu.read(mb.cpu.pc+3))
+}
+
+static CONTROLS: [VirtualKeyCode; 8] = [VirtualKeyCode::Z, VirtualKeyCode::X, VirtualKeyCode::Return, VirtualKeyCode::RShift, 
+                    VirtualKeyCode::Left, VirtualKeyCode::Right, VirtualKeyCode::Up, VirtualKeyCode::Down];
+
+fn control(key: VirtualKeyCode) -> JoypadButton {
+    match key {
+        VirtualKeyCode::Z => JoypadButton::A,
+        VirtualKeyCode::X => JoypadButton::B,
+        VirtualKeyCode::Return => JoypadButton::Start,
+        VirtualKeyCode::RShift => JoypadButton::Select,
+        VirtualKeyCode::Left => JoypadButton::Left,
+        VirtualKeyCode::Right => JoypadButton::Right,
+        VirtualKeyCode::Up => JoypadButton::Up,
+        VirtualKeyCode::Down => JoypadButton::Down,
+        _ => panic!("invalid control keycode")
+    }
 }
 
 fn main() -> Result<(), Error> {
@@ -92,8 +111,9 @@ fn main() -> Result<(), Error> {
 
     let mut cycle_count:u32 = 0;
 
-    event_loop.run(move |event, _, control_flow| {
+    let mut frame_start = Instant::now();
 
+    event_loop.run(move |event, _, control_flow| {
         cycle_count += mb.tick() as u32;
         if mb.mmu.read(0xFF02) == 0x81 {
             print!("{}", mb.mmu.read(0xFF01) as char);
@@ -113,6 +133,16 @@ fn main() -> Result<(), Error> {
             }
 
             cycle_count -= 70224;
+
+            // Wait to conserve framerate
+            let elapsed_time = Instant::now().duration_since(frame_start).as_millis() as u32;
+            let wait_millis = match 1000 / TARGET_FPS >= elapsed_time {
+                true => 1000 / TARGET_FPS - elapsed_time,
+                false => 0,
+            };
+            let new_inst = frame_start + std::time::Duration::from_millis(wait_millis as u64);
+            *control_flow = ControlFlow::WaitUntil(new_inst);
+            frame_start = Instant::now();
         }
 
         // Handle input events
@@ -122,7 +152,12 @@ fn main() -> Result<(), Error> {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
-        }
+
+            for ctr in CONTROLS {
+                if input.key_pressed(ctr) { mb.joypad.press(control(ctr)) }
+                if input.key_released(ctr) { mb.joypad.release(control(ctr)) }
+            }
+        };
     });
 
 }

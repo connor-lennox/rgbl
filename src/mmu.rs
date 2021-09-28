@@ -27,7 +27,6 @@ impl Mmu {
             0xE000..=0xFDFF => self.memory.read(addr - 0x2000),  // Echo RAM
             0xFE00..=0xFE9F => self.ppu.read(addr),              // OAM
             0xFEA0..=0xFEFF => 0xFF,                             // Forbidden Memory
-            0xFF00 => 0xFF,                                      // TODO: Temp input stub for testing
             0xFF00..=0xFF7F => self.ppu.read(addr),              // IO Regs
             0xFF80.. => self.memory.read(addr)                   // High RAM, Interrupt Enable Register
         }
@@ -42,7 +41,6 @@ impl Mmu {
             0xE000..=0xFDFF => self.memory.write(addr - 0x2000, value), // Echo RAM
             0xFE00..=0xFE9F => self.ppu.write(addr, value),             // OAM
             0xFEA0..=0xFEFF => (),                                      // Forbidden Memory
-            0xFF00 => (),                                               // TODO: Temp input stub for testing
             0xFF00..=0xFF7F => {                                        // IO Regs
                 self.ppu.write(addr, value);
                 if addr == 0xFF46 {

@@ -1,5 +1,6 @@
 use crate::cpu::Cpu;
 use crate::cartridge::{self};
+use crate::joypad::{self, Joypad};
 use crate::lcd::Lcd;
 use crate::memory::{MemoryType, DMGMemory};
 use crate::mmu::Mmu;
@@ -11,6 +12,7 @@ pub struct Motherboard {
     pub mmu: Mmu,
     pub timers: Timers,
     pub lcd: Lcd,
+    pub joypad: Joypad,
 }
 
 impl Motherboard {
@@ -23,10 +25,12 @@ impl Motherboard {
             ),
             timers: Timers::new(),
             lcd: Lcd::new(),
+            joypad: Joypad::new(),
         }
     }
 
     pub fn tick(&mut self) -> u8 {
+        self.joypad.tick(&mut self.mmu);
         let mcycles = self.cpu.execute(&mut self.mmu);
         self.timers.tick(&mut self.mmu, mcycles);
         self.mmu.tick(&mut self.lcd, mcycles);
