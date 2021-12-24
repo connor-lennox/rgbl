@@ -77,17 +77,11 @@ impl MBC1 {
 
 impl Cartridge for MBC1 {
     fn read(&self, addr: u16) -> u8 {
-        if addr < 0x4000 {
-            // Read from ROM bank 0
-            return self.rom[addr as usize];
-        } else if addr >= 0x4000 && addr < 0x8000 {
-            // Read from selected ROM bank
-            return self.rom[self.active_rom_bank * 16384 + (addr - 0x4000) as usize];
-        } else if addr >= 0xA000 && addr < 0xC000 {
-            // Read from selected RAM bank
-            return self.ram[self.active_ram_bank * 16384 + (addr - 0xA000) as usize];
-        } else {
-            panic!("Tried to read invalid address on MBC1 cartridge: {}", addr);
+        match addr {
+            0x0000..=0x3FFF => self.rom[addr as usize],
+            0x4000..=0x7FFF => self.rom[self.active_rom_bank * 16384 + (addr - 0x4000) as usize],
+            0xA000..=0xBFFF => self.ram[self.active_ram_bank * 16384 + (addr - 0xA000) as usize],
+            _ => panic!("Tried to read invalid address on MBC1 cartridge: {}", addr)
         }
     }
 
@@ -159,9 +153,8 @@ impl Cartridge for MBC3 {
 
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            0xA000..=0xBFFF => self.ram[self.active_ram_bank * 16384 + (addr - 0xA000) as usize] = value,
             0x0000..=0x1FFF => self.ram_active = value == 0x0A,
-            0x2000..=0x3FFF => self.active_ram_bank = if value == 0 { 1 } else { value as usize },
+            0x2000..=0x3FFF => self.active_rom_bank = if value == 0 { 1 } else { value as usize },
             0x4000..=0x5FFF => {
                 if value <= 0x03 {
                     self.active_ram_bank = value as usize;
@@ -172,6 +165,7 @@ impl Cartridge for MBC3 {
             0x6000..=0x7FFF => {
                 todo!("latch rtc register")
             },
+            0xA000..=0xBFFF => self.ram[self.active_ram_bank * 16384 + (addr - 0xA000) as usize] = value,
             _ => panic!("Tried to write invalid address on MBC3 cartridge: {}", addr)
         }
     }
